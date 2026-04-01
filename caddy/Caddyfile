@@ -1,0 +1,71 @@
+# CADDY_ALLOWED_IPS set by entrypoint.sh from CADDY_WHITELIST_* (.env)
+# Deny if: not ACME challenge path AND client IP not in allowlist.
+# ACME path bypass avoids blocking Let's Encrypt HTTP-01 (still ensure port 80 is reachable).
+
+gitea.{$SERVER_IP}.nip.io {
+    log {
+        output file /var/log/caddy/gitea-access.log
+    }
+
+    @deny {
+        not path /.well-known/acme-challenge/*
+        not remote_ip {$CADDY_ALLOWED_IPS}
+    }
+    handle @deny {
+        respond "Forbidden" 403
+    }
+    handle {
+        reverse_proxy gitea:3000
+        header {
+            Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+            X-Frame-Options "SAMEORIGIN"
+            X-Content-Type-Options "nosniff"
+            X-XSS-Protection "1; mode=block"
+        }
+    }
+}
+
+mcp.{$SERVER_IP}.nip.io {
+    log {
+        output file /var/log/caddy/mcp-access.log
+    }
+
+    @deny {
+        not path /.well-known/acme-challenge/*
+        not remote_ip {$CADDY_ALLOWED_IPS}
+    }
+    handle @deny {
+        respond "Forbidden" 403
+    }
+    handle {
+        reverse_proxy mcp:8000
+        header {
+            Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+            X-Content-Type-Options "nosniff"
+        }
+    }
+}
+
+admin.{$SERVER_IP}.nip.io {
+    log {
+        output file /var/log/caddy/admin-access.log
+    }
+
+    @deny {
+        not path /.well-known/acme-challenge/*
+        not remote_ip {$CADDY_ALLOWED_IPS}
+    }
+    handle @deny {
+        respond "Forbidden" 403
+    }
+    handle {
+        reverse_proxy admin:8080
+        header {
+            Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+            X-Frame-Options "DENY"
+            X-Content-Type-Options "nosniff"
+            X-XSS-Protection "1; mode=block"
+            Referrer-Policy "strict-origin-when-cross-origin"
+        }
+    }
+}

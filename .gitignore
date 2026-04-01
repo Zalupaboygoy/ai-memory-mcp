@@ -1,0 +1,54 @@
+# Secrets & local env
+.env
+.env.*
+!.env.example
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+.virtualenv/
+
+# Bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+*.cover
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Packaging / build
+build/
+dist/
+*.egg
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+wheels/
+
+# Tools
+.dmypy.json
+dmypy.json
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors (optional local junk)
+.idea/
+*.swp
+*.swo
+*~

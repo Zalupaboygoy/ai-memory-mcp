@@ -1,0 +1,184 @@
+# Снаружи: Caddy 80/443 (Gitea / MCP / Admin), Gitea SSH 2222 (git clone/push по ключу).
+# Postgres и Neo4j без ports — только сеть backend (internal).
+services:
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      MCP_DB_PASSWORD: ${MCP_DB_PASSWORD}
+      GITEA_DB_PASSWORD: ${GITEA_DB_PASSWORD}
+      MCP_FIRST_USERNAME: ${MCP_FIRST_USERNAME:-user}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 1g
+      NEO4J_server_memory_pagecache_size: 512m
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u ${NEO4J_USER:-neo4j} -p ${NEO4J_PASSWORD} 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  gitea:
+    image: gitea/gitea:1.23.4
+    container_name: gitea
+    restart: unless-stopped
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__database__DB_TYPE=postgres
+      - GITEA__database__HOST=postgres:5432
+      - GITEA__database__NAME=gitea
+      - GITEA__database__USER=gitea
+      - GITEA__database__PASSWD=${GITEA_DB_PASSWORD}
+      - GITEA__server__DOMAIN=${GITEA_DOMAIN}
+      - GITEA__server__ROOT_URL=${GITEA_ROOT_URL}
+      - GITEA__server__HTTP_PORT=3000
+      - GITEA__server__DISABLE_SSH=false
+      # Порт в URL клонирования по SSH (совпадает с пробросом на хост)
+      - GITEA__server__SSH_PORT=2222
+      - GITEA__server__SSH_LISTEN_PORT=2222
+      - GITEA__security__INSTALL_LOCK=true
+      - GITEA__security__SECRET_KEY=${GITEA_SECRET_KEY}
+      - GITEA__security__INTERNAL_TOKEN=${GITEA_INTERNAL_TOKEN}
+      - GITEA__security__COOKIE_SECURE=true
+      - GITEA__security__PASSWORD_HASH_ALGO=argon2
+      - GITEA__service__DISABLE_REGISTRATION=true
+      - GITEA__service__DEFAULT_KEEP_EMAIL_PRIVATE=true
+      - GITEA__picture__DISABLE_GRAVATAR=true
+      - GITEA__picture__ENABLE_FEDERATED_AVATAR=false
+      - GITEA__log__LEVEL=info
+      - GITEA__cache__ADAPTER=memory
+      - GITEA__session__PROVIDER=memory
+    volumes:
+      - gitea_data:/data
+    networks:
+      - backend
+      - proxy
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Git по SSH с ключами (порт в clone URL = 2222, см. SSH_PORT выше)
+    ports:
+      - "2222:2222"
+
+  mcp:
+    build:
+      context: ./mcp
+    container_name: ai-memory-mcp
+    restart: unless-stopped
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=ai_memory
+      - DB_USER=mcpuser
+      - DB_PASSWORD=${MCP_DB_PASSWORD}
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+      - GITEA_URL=http://gitea:3000
+      - GITEA_TOKEN=${GITEA_TOKEN}
+      - GITEA_AGENT_USER=ai-agent
+      - LLM_CHAT_URL=${LLM_CHAT_URL:-}
+      - LLM_CHAT_KEY=${LLM_CHAT_KEY:-}
+      - LLM_CHAT_MODEL=${LLM_CHAT_MODEL:-gemini-2.5-flash}
+      - EMBEDDINGS_URL=${EMBEDDINGS_URL:-https://generativelanguage.googleapis.com/v1beta}
+      - EMBEDDINGS_KEY=${EMBEDDINGS_KEY:-}
+      - EMBEDDINGS_MODEL=${EMBEDDINGS_MODEL:-models/text-embedding-004}
+      - AUTO_SUMMARIZE=${AUTO_SUMMARIZE:-false}
+      - AUTO_SUMMARIZE_TRIGGER=${AUTO_SUMMARIZE_TRIGGER:-20}
+    networks:
+      - backend
+      - proxy
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+
+  admin:
+    build:
+      context: ./admin
+    container_name: ai-memory-admin
+    restart: unless-stopped
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=ai_memory
+      - DB_USER=mcpuser
+      - DB_PASSWORD=${MCP_DB_PASSWORD}
+      - ADMIN_HOST=0.0.0.0
+      - ADMIN_PORT=8080
+    networks:
+      - backend
+      - proxy
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    environment:
+      SERVER_IP: ${SERVER_IP}
+      CADDY_WHITELIST_ENABLED: ${CADDY_WHITELIST_ENABLED:-false}
+      CADDY_WHITELIST_IPS: ${CADDY_WHITELIST_IPS:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/entrypoint.sh:/entrypoint.sh:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    networks:
+      - proxy
+    depends_on:
+      - gitea
+      - mcp
+      - admin
+
+networks:
+  backend:
+    internal: true
+  proxy:
+
+volumes:
+  postgres_data:
+  neo4j_data:
+  neo4j_logs:
+  gitea_data:
+  caddy_data:
+  caddy_config:
+  caddy_logs:

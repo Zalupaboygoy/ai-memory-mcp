@@ -1,0 +1,7 @@
+fastmcp
+psycopg2-binary
+python-dotenv
+requests
+httpx
+openai
+neo4j
