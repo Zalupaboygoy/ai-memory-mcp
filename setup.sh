@@ -49,7 +49,7 @@ ok "Account: ${GITEA_ADMIN_USER} (Gitea password: 24 chars, generated)"
 # ── Step 3: Caddy IP allowlist ─────────────────────────────────────────────────
 echo
 echo -e "${GREEN}━━ Step 3 / 5 — Caddy (reverse proxy) ━━${NC}"
-echo "Restrict access to gitea / mcp / admin by client IP (as seen by Caddy)."
+echo "Restrict access to gitea / admin by client IP (MCP is not filtered; use Bearer token)."
 read -rp "$(echo -e "${CYAN}Enable IP allowlist${NC} [y/N]: ")" _wl
 case "${_wl,,}" in
     y|yes) CADDY_WHITELIST_ENABLED=true

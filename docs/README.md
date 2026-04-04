@@ -29,7 +29,7 @@ See [SETUP.md](SETUP.md) for details.
 ## Architecture
 
 ```
-Caddy (TLS, optional IP allowlist) -> MCP (FastMCP + SSE + auth middleware)
+Caddy (TLS; optional IP allowlist on Gitea + Admin only) -> MCP (FastMCP + SSE + Bearer auth)
                                    -> Admin UI (FastAPI)
                                    -> Gitea :3000
 
@@ -119,7 +119,7 @@ get_graph() -> Neo4j traversal (fast) | PostgreSQL fallback (if Neo4j down)
 - Secrets in `.env` (not committed; see `.gitignore` and `.env.example`)
 - MCP tokens stored as SHA256 hashes; only hashes in Postgres
 - Multi-tenant: each user sees only their own data
-- TLS via Caddy (Let's Encrypt); optional **IP allowlist** (`CADDY_WHITELIST_*`)
+- TLS via Caddy (Let's Encrypt); optional **IP allowlist** for **Gitea + Admin** (`CADDY_WHITELIST_*`); MCP relies on **Bearer token** only
 - PostgreSQL and Neo4j have **no host port mappings**; `backend` network is `internal: true`
 - Admin UI and MCP behind the same Caddy hostnames as in `caddy/Caddyfile`
 

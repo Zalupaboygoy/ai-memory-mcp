@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
-# CADDY_WHITELIST_ENABLED=true → only CADDY_WHITELIST_IPS (space-separated CIDRs) may reach upstreams.
+# CADDY_WHITELIST_ENABLED=true → only CADDY_WHITELIST_IPS may reach Gitea + Admin (see Caddyfile). MCP has no IP filter.
 # false → allow all (0.0.0.0/0 ::/0). CADDY_ALLOWED_IPS is what Caddyfile reads.
 if [ "${CADDY_WHITELIST_ENABLED}" = "true" ]; then
   if [ -z "${CADDY_WHITELIST_IPS}" ]; then

@@ -86,7 +86,7 @@ docker compose down
 ## Caddy
 
 - Config file in repo: `caddy/Caddyfile` — hostnames `gitea.{$SERVER_IP}.nip.io`, etc.
-- Optional IP allowlist: `CADDY_WHITELIST_ENABLED`, `CADDY_WHITELIST_IPS` in `.env` (processed by `caddy/entrypoint.sh`).
+- Optional IP allowlist (Gitea + Admin hostnames only): `CADDY_WHITELIST_*` in `.env` (`caddy/entrypoint.sh`). MCP hostname is not filtered by IP.
 
 ## Category tree
 

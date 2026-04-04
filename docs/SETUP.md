@@ -33,14 +33,14 @@ Substitute your `YOUR_IP`, Gitea owner, and repository name (`YOUR_OWNER` / `YOU
 The script will ask for (5 steps):
 - **Step 1:** server public IP (auto-detected)
 - **Step 2:** Gitea admin username and email (password for Gitea admin is **generated**, 24 hex chars)
-- **Step 3:** optional Caddy IP allowlist (`CADDY_WHITELIST_*` in `.env`)
+- **Step 3:** optional Caddy IP allowlist for **Gitea + Admin** (`CADDY_WHITELIST_*`; MCP is not IP-restricted)
 - **Step 4:** optional `AUTO_SUMMARIZE` and LLM/embeddings (if disabled, defaults match `.env.example`; no prompts)
 - **Step 5:** no questions — generates DB/Gitea/Neo4j secrets and writes `.env`
 
 `NEO4J_USER`, `GITEA_DOMAIN`, `GITEA_ROOT_URL` are derived from `SERVER_IP` (see `.env.example`).
 
 Then everything runs automatically:
-1. Writes `.env` and starts postgres, neo4j, gitea, admin, caddy — Caddy loads `caddy/Caddyfile` with `{$SERVER_IP}` and optional whitelist from `.env`
+1. Writes `.env` and starts postgres, neo4j, gitea, admin, caddy — Caddy loads `caddy/Caddyfile` with `{$SERVER_IP}` and optional whitelist (Gitea/Admin only) from `.env`
 2. Creates Gitea users (admin + service user `ai-agent`)
 3. Generates Gitea API token for `ai-agent`, appends to `.env`
 4. Starts MCP, creates the first MCP bearer token for `MCP_FIRST_USERNAME`

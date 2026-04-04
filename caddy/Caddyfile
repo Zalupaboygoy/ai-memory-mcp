@@ -1,4 +1,5 @@
 # CADDY_ALLOWED_IPS set by entrypoint.sh from CADDY_WHITELIST_* (.env)
+# Allowlist applies to gitea + admin only. MCP (mcp.*) is always reachable; auth is Bearer token in app.
 # Deny if: not ACME challenge path AND client IP not in allowlist.
 # ACME path bypass avoids blocking Let's Encrypt HTTP-01 (still ensure port 80 is reachable).
 
@@ -30,13 +31,6 @@ mcp.{$SERVER_IP}.nip.io {
         output file /var/log/caddy/mcp-access.log
     }
 
-    @deny {
-        not path /.well-known/acme-challenge/*
-        not remote_ip {$CADDY_ALLOWED_IPS}
-    }
-    handle @deny {
-        respond "Forbidden" 403
-    }
     handle {
         reverse_proxy mcp:8000
         header {
