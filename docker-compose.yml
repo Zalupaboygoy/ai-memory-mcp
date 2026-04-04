@@ -1,7 +1,7 @@
-# Снаружи: Caddy 80/443 на хосте (network_mode: host) — remote_ip = реальный клиент (whitelist работает).
-# Gitea/MCP/Admin HTTP слушают только 127.0.0.1 на хосте; Caddy проксирует туда. SSH Gitea 2222 — в интернет.
-# Postgres и Neo4j без ports — только сеть backend (internal).
-# Caddy host network: только Linux (на Docker Desktop Windows host mode не поддерживается).
+# Outside: Caddy 80/443 on the host (network_mode: host) — remote_ip is the real client (allowlist works).
+# Gitea/MCP/Admin HTTP bind to 127.0.0.1 on the host only; Caddy proxies there. Gitea SSH 2222 is exposed to the internet.
+# Postgres and Neo4j have no published ports — backend network only (internal).
+# Caddy host network: Linux only (Docker Desktop on Windows does not support host mode the same way).
 services:
 
   postgres:
@@ -62,7 +62,7 @@ services:
       - GITEA__server__ROOT_URL=${GITEA_ROOT_URL}
       - GITEA__server__HTTP_PORT=3000
       - GITEA__server__DISABLE_SSH=false
-      # Порт в URL клонирования по SSH (совпадает с пробросом на хост)
+      # SSH port in clone URLs (matches the host port mapping)
       - GITEA__server__SSH_PORT=2222
       - GITEA__server__SSH_LISTEN_PORT=2222
       - GITEA__security__INSTALL_LOCK=true
@@ -85,7 +85,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    # SSH в интернет; HTTP только localhost — для Caddy (host network) → реальный client IP в allowlist
+    # SSH to the internet; HTTP localhost only — for Caddy (host network) → real client IP in allowlist
     ports:
       - "2222:2222"
       - "127.0.0.1:3000:3000"
@@ -117,6 +117,7 @@ services:
       - EMBEDDINGS_MODEL=${EMBEDDINGS_MODEL:-models/text-embedding-004}
       - AUTO_SUMMARIZE=${AUTO_SUMMARIZE:-false}
       - AUTO_SUMMARIZE_TRIGGER=${AUTO_SUMMARIZE_TRIGGER:-20}
+      - GIT_LOCAL_REPOS_TTL_DAYS=${GIT_LOCAL_REPOS_TTL_DAYS:-7}
     networks:
       - backend
       - egress
@@ -173,7 +174,7 @@ services:
 networks:
   backend:
     internal: true
-  # не internal — исходящий интернет для MCP (LLM/embeddings) и Gitea (webhooks и т.д.)
+  # Not internal — outbound internet for MCP (LLM/embeddings) and Gitea (webhooks, etc.)
   egress: {}
 
 volumes:

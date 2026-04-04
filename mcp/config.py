@@ -34,6 +34,8 @@ AUTO_SUMMARIZE = os.getenv('AUTO_SUMMARIZE', 'false').lower() == 'true'
 AUTO_SUMMARIZE_TRIGGER = int(os.getenv('AUTO_SUMMARIZE_TRIGGER', '20'))
 
 GIT_WORKDIR = '/tmp/git-repos'
+# Remove local clones older than N days (0 = disable automatic removal).
+GIT_LOCAL_REPOS_TTL_DAYS = int(os.getenv('GIT_LOCAL_REPOS_TTL_DAYS', '7'))
 GITEA_INTERNAL_URL = os.getenv('GITEA_URL', 'http://gitea:3000')
 GITEA_AGENT_TOKEN = os.getenv('GITEA_TOKEN', '')
 GITEA_AGENT_LOGIN = os.getenv('GITEA_AGENT_USER', 'ai-agent')

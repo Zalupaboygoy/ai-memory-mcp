@@ -421,6 +421,8 @@ Commits are made as `ai-agent <ai@memory.local>` automatically.
 
 > **Note:** `/tmp` is ephemeral — data is lost on container restart. Use push to persist.
 
+> **TTL:** By default, a local clone is **removed after 7 days** without activity (based on mtime under `.git`). A background job runs daily; cleanup also runs once at MCP startup. Set env `GIT_LOCAL_REPOS_TTL_DAYS=0` to disable automatic deletion.
+
 ---
 
 ### `git_clone`
