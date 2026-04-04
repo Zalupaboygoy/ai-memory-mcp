@@ -1,7 +1,8 @@
 # CADDY_ALLOWED_IPS set by entrypoint.sh from CADDY_WHITELIST_* (.env)
-# Allowlist applies to gitea + admin only. MCP (mcp.*) is always reachable; auth is Bearer token in app.
+# Caddy runs with network_mode: host — remote_ip is the real client (not Docker bridge).
+# Upstreams: 127.0.0.1 (published from compose), not service DNS names.
+# Allowlist: gitea + admin only. MCP without IP filter; Bearer in app.
 # Deny if: not ACME challenge path AND client IP not in allowlist.
-# ACME path bypass avoids blocking Let's Encrypt HTTP-01 (still ensure port 80 is reachable).
 
 gitea.{$SERVER_IP}.nip.io {
     log {
@@ -16,7 +17,7 @@ gitea.{$SERVER_IP}.nip.io {
         respond "Forbidden" 403
     }
     handle {
-        reverse_proxy gitea:3000
+        reverse_proxy 127.0.0.1:3000
         header {
             Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
             X-Frame-Options "SAMEORIGIN"
@@ -32,7 +33,7 @@ mcp.{$SERVER_IP}.nip.io {
     }
 
     handle {
-        reverse_proxy mcp:8000
+        reverse_proxy 127.0.0.1:8000
         header {
             Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
             X-Content-Type-Options "nosniff"
@@ -53,7 +54,7 @@ admin.{$SERVER_IP}.nip.io {
         respond "Forbidden" 403
     }
     handle {
-        reverse_proxy admin:8080
+        reverse_proxy 127.0.0.1:8080
         header {
             Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
             X-Frame-Options "DENY"

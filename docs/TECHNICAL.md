@@ -8,29 +8,32 @@
 | FastMCP | `mcp/requirements.txt` | MCP over SSE (`mcp/main.py`) |
 | PostgreSQL | `pgvector/pgvector:pg16` | DB `ai_memory`, extension `vector`, `pg_trgm` |
 | Neo4j | `neo4j:5-community` | APOC; only on internal Docker network |
-| Gitea | `gitea/gitea:1.23.4` | HTTP inside stack `:3000`; SSH **2222** published on host |
-| Caddy | `caddy:2-alpine` | TLS, `caddy/Caddyfile` + `caddy/entrypoint.sh` |
+| Gitea | `gitea/gitea:1.23.4` | HTTP `127.0.0.1:3000` on host + SSH **2222** public |
+| Caddy | `caddy:2-alpine` | **`network_mode: host`** — TLS on host `:80`/`:443`; sees real client IP for allowlist (Linux only) |
 | Admin UI | `admin/` (FastAPI) | Token/user management |
 
 There is **no** host install of PostgreSQL, Gitea, or Caddy — everything runs in containers. Versions of Python libraries are pinned only in `mcp/requirements.txt` (no separate lockfile in repo).
 
 ## Network
 
-- **`backend`**: `internal: true` — Postgres and Neo4j only here; not reachable from the host. MCP/Admin/Gitea also attach to **`proxy`** for Caddy and outbound API calls.
-- **`proxy`**: Caddy, Gitea, MCP, Admin — fronted by Caddy on host `80`/`443`.
+- **`backend`**: `internal: true` — Postgres, Neo4j, Gitea, MCP, Admin; **no** inbound from the internet on this network. DBs are not published on the host.
+- **`egress`**: non-internal network attached to **Gitea** and **MCP** so they keep outbound internet (webhooks, `git clone` from upstream, LLM/embeddings APIs). Replaces the old separate `proxy` bridge.
+- **Caddy** uses **`network_mode: host`** (Linux): listens on the host’s `80`/`443`/`443` UDP, so **`remote_ip` in the Caddyfile matches the real client** (IP allowlist works). Upstreams are **`127.0.0.1:3000` / `:8000` / `:8080`** — HTTP for Gitea/MCP/Admin is published **only on localhost** on the host, not on the LAN.
 
-Databases are **not** mapped to host ports (`docker-compose.yml`). Access from the host to Postgres/Neo4j is only via `docker compose exec`, not `localhost:5432`.
+**Docker Desktop (Windows/macOS):** `network_mode: host` is **not** supported like on Linux; deploy Caddy on a **Linux** host or use another edge proxy that sets `X-Forwarded-For` and configure Caddy `trusted_proxies` (not included in this repo).
+
+Databases are **not** mapped to host ports. Access from the host to Postgres/Neo4j is only via `docker compose exec`, not `localhost:5432`.
 
 ## Services (containers)
 
 | Container | Role | Host ports |
 |-----------|------|------------|
-| `caddy` | Reverse proxy, HTTPS | `80`, `443`, `443/udp` |
-| `gitea` | Git HTTP + built-in SSH | `2222` → SSH (see `GITEA__server__SSH_PORT`) |
+| `caddy` | TLS (host network) | `80`, `443`, `443/udp` on **host** |
+| `gitea` | Git | `2222` SSH (public); `127.0.0.1:3000` HTTP (Caddy only) |
 | `postgres` | Databases `ai_memory`, `gitea` | *(none)* |
 | `neo4j` | Graph | *(none)* |
-| `ai-memory-mcp` | MCP SSE | *(none; via Caddy)* |
-| `ai-memory-admin` | Admin UI | *(none; via Caddy)* |
+| `ai-memory-mcp` | MCP | `127.0.0.1:8000` (Caddy only) |
+| `ai-memory-admin` | Admin UI | `127.0.0.1:8080` (Caddy only) |
 
 ## URLs
 
@@ -85,7 +88,7 @@ docker compose down
 
 ## Caddy
 
-- Config file in repo: `caddy/Caddyfile` — hostnames `gitea.{$SERVER_IP}.nip.io`, etc.
+- Config: `caddy/Caddyfile` — `reverse_proxy` targets **`127.0.0.1`** (see `docker-compose.yml` port mappings), not Docker DNS names.
 - Optional IP allowlist (Gitea + Admin hostnames only): `CADDY_WHITELIST_*` in `.env` (`caddy/entrypoint.sh`). MCP hostname is not filtered by IP.
 
 ## Category tree

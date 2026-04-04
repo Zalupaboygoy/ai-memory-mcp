@@ -1,5 +1,7 @@
-# Снаружи: Caddy 80/443 (Gitea / MCP / Admin), Gitea SSH 2222 (git clone/push по ключу).
+# Снаружи: Caddy 80/443 на хосте (network_mode: host) — remote_ip = реальный клиент (whitelist работает).
+# Gitea/MCP/Admin HTTP слушают только 127.0.0.1 на хосте; Caddy проксирует туда. SSH Gitea 2222 — в интернет.
 # Postgres и Neo4j без ports — только сеть backend (internal).
+# Caddy host network: только Linux (на Docker Desktop Windows host mode не поддерживается).
 services:
 
   postgres:
@@ -79,13 +81,14 @@ services:
       - gitea_data:/data
     networks:
       - backend
-      - proxy
+      - egress
     depends_on:
       postgres:
         condition: service_healthy
-    # Git по SSH с ключами (порт в clone URL = 2222, см. SSH_PORT выше)
+    # SSH в интернет; HTTP только localhost — для Caddy (host network) → реальный client IP в allowlist
     ports:
       - "2222:2222"
+      - "127.0.0.1:3000:3000"
 
   mcp:
     build:
@@ -116,7 +119,9 @@ services:
       - AUTO_SUMMARIZE_TRIGGER=${AUTO_SUMMARIZE_TRIGGER:-20}
     networks:
       - backend
-      - proxy
+      - egress
+    ports:
+      - "127.0.0.1:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -138,7 +143,8 @@ services:
       - ADMIN_PORT=8080
     networks:
       - backend
-      - proxy
+    ports:
+      - "127.0.0.1:8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -147,23 +153,18 @@ services:
     image: caddy:2-alpine
     container_name: caddy
     restart: unless-stopped
+    network_mode: host
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
     environment:
       SERVER_IP: ${SERVER_IP}
       CADDY_WHITELIST_ENABLED: ${CADDY_WHITELIST_ENABLED:-false}
       CADDY_WHITELIST_IPS: ${CADDY_WHITELIST_IPS:-}
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./caddy/entrypoint.sh:/entrypoint.sh:ro
       - caddy_data:/data
       - caddy_config:/config
       - caddy_logs:/var/log/caddy
-    networks:
-      - proxy
     depends_on:
       - gitea
       - mcp
@@ -172,7 +173,8 @@ services:
 networks:
   backend:
     internal: true
-  proxy:
+  # не internal — исходящий интернет для MCP (LLM/embeddings) и Gitea (webhooks и т.д.)
+  egress: {}
 
 volumes:
   postgres_data:

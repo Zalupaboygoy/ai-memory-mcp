@@ -4,9 +4,10 @@ Deploy the full stack with a single command.
 
 ## Prerequisites
 
-- Ubuntu 24.04 LTS (or any Linux with Docker)
+- **Linux** with Docker (Caddy uses `network_mode: host` so IP allowlist sees the real client; Docker Desktop on Windows/macOS does not support this the same way)
+- Ubuntu 24.04 LTS or similar
 - Root access
-- Open ports: `80`, `443` (HTTPS: Gitea / MCP / Admin), `2222` (Git по SSH с ключом). Базы на хост не проброшены
+- Open ports on the host: `80`, `443` (Caddy), `2222` (Git over SSH). Базы на хост не проброшены
 - Public IP
 
 ---

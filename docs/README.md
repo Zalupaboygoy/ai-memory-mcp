@@ -1,4 +1,4 @@
-# AI Memory MCP — v3 (Hybrid PostgreSQL + Neo4j)
+# AI Memory MCP — Hybrid PostgreSQL + Neo4j
 
 Hybrid knowledge base for AI agents. PostgreSQL for structured data, full-text search, embeddings. Neo4j for graph relations, traversal, pattern matching.
 
@@ -29,9 +29,7 @@ See [SETUP.md](SETUP.md) for details.
 ## Architecture
 
 ```
-Caddy (TLS; optional IP allowlist on Gitea + Admin only) -> MCP (FastMCP + SSE + Bearer auth)
-                                   -> Admin UI (FastAPI)
-                                   -> Gitea :3000
+Caddy on host :80/:443 (TLS; optional IP allowlist on Gitea + Admin) -> 127.0.0.1:8000 MCP, :8080 Admin, :3000 Gitea
 
 MCP -> PostgreSQL 16 (pgvector)  [structured data, FTS, embeddings]
     -> Neo4j 5 (APOC)            [graph relations, traversal, patterns]
