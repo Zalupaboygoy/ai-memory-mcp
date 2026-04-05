@@ -316,7 +316,7 @@ Returns: `{path, name, size, sha, content, html_url}`
 ---
 
 ### `gitea_create_or_update_file`
-Create or update a file. If **`sha` is omitted**, the server **GETs** the file on the branch: **404** → create without `sha`; **200** → uses returned **`sha`** for update (GitHub/Gitea-compatible).
+Create or update a file. If **`sha` is omitted**, the server **GETs** the file: **404** → **`POST /contents/...`** (create, no SHA); if the file exists → **`PUT /contents/...`** with the blob **`sha`** from the probe. If **`sha` is passed**, **`PUT`** is used with that SHA (update).
 | Param | Type | Req | Description |
 |-------|------|-----|-------------|
 | owner | str | ✓ | |

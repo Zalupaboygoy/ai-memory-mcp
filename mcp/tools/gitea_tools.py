@@ -56,16 +56,21 @@ def gitea_get_file(owner: str, repo: str, filepath: str, ref: str = 'main') -> D
 
 @mcp.tool()
 def gitea_create_or_update_file(owner: str, repo: str, filepath: str, content: str, message: str, branch: str = 'main', sha: Optional[str] = None) -> Dict:
-    """PUT contents. Omit sha for new files; pass sha (or rely on auto-fetch) to overwrite."""
-    resolved_sha = sha
-    if not resolved_sha:
+    """Create via POST (no SHA) or update via PUT (SHA required). Gitea: PUT alone is not sufficient for new files."""
+    data = {'message': message, 'content': base64.b64encode(content.encode()).decode(), 'branch': branch}
+
+    if sha:
+        data['sha'] = sha
+        r = _gput(f'/repos/{owner}/{repo}/contents/{filepath}', data)
+    else:
         probe = _gget(f'/repos/{owner}/{repo}/contents/{filepath}?ref={branch}')
         if isinstance(probe, list):
             return {'error': 'Path is a directory, not a file', 'path': filepath}
         if isinstance(probe, dict) and probe.get('status') == 404:
-            resolved_sha = None
+            r = _gpost(f'/repos/{owner}/{repo}/contents/{filepath}', data)
         elif isinstance(probe, dict) and probe.get('sha'):
-            resolved_sha = probe['sha']
+            data['sha'] = probe['sha']
+            r = _gput(f'/repos/{owner}/{repo}/contents/{filepath}', data)
         elif isinstance(probe, dict) and 'error' in probe:
             return {
                 'error': probe.get('error', 'probe failed')[:500],
@@ -75,10 +80,6 @@ def gitea_create_or_update_file(owner: str, repo: str, filepath: str, content: s
         else:
             return {'error': 'Unexpected response when checking if file exists', 'detail': str(probe)[:300]}
 
-    data = {'message': message, 'content': base64.b64encode(content.encode()).decode(), 'branch': branch}
-    if resolved_sha:
-        data['sha'] = resolved_sha
-    r = _gput(f'/repos/{owner}/{repo}/contents/{filepath}', data)
     if 'error' in r:
         return r
     if 'content' not in r:
