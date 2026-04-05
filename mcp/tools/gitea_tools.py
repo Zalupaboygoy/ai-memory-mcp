@@ -2,10 +2,7 @@
 import base64
 from typing import Dict, Optional
 
-import requests
-
-from config import GITEA_URL
-from gitea_client import _gdel, _gget, _gpost, _gput, _gh
+from gitea_client import _gdel, _gget, _gpost, _gput, _gh, _gpatch
 from mcp_app import mcp
 
 @mcp.tool()
@@ -59,10 +56,28 @@ def gitea_get_file(owner: str, repo: str, filepath: str, ref: str = 'main') -> D
 
 @mcp.tool()
 def gitea_create_or_update_file(owner: str, repo: str, filepath: str, content: str, message: str, branch: str = 'main', sha: Optional[str] = None) -> Dict:
-    """PUT contents; sha required to overwrite existing blob."""
+    """PUT contents. Omit sha for new files; pass sha (or rely on auto-fetch) to overwrite."""
+    resolved_sha = sha
+    if not resolved_sha:
+        probe = _gget(f'/repos/{owner}/{repo}/contents/{filepath}?ref={branch}')
+        if isinstance(probe, list):
+            return {'error': 'Path is a directory, not a file', 'path': filepath}
+        if isinstance(probe, dict) and probe.get('status') == 404:
+            resolved_sha = None
+        elif isinstance(probe, dict) and probe.get('sha'):
+            resolved_sha = probe['sha']
+        elif isinstance(probe, dict) and 'error' in probe:
+            return {
+                'error': probe.get('error', 'probe failed')[:500],
+                'status': probe.get('status'),
+                'hint': 'Check owner, repo, branch, filepath, and token scopes.',
+            }
+        else:
+            return {'error': 'Unexpected response when checking if file exists', 'detail': str(probe)[:300]}
+
     data = {'message': message, 'content': base64.b64encode(content.encode()).decode(), 'branch': branch}
-    if sha:
-        data['sha'] = sha
+    if resolved_sha:
+        data['sha'] = resolved_sha
     r = _gput(f'/repos/{owner}/{repo}/contents/{filepath}', data)
     if 'error' in r:
         return r
@@ -134,11 +149,18 @@ def gitea_update_repo(owner: str, repo: str, description: str = None, private: b
     if default_branch is not None: data['default_branch'] = default_branch
     if not data:
         return {'error': 'No fields to update'}
-    r = requests.patch(f'{GITEA_URL}/api/v1/repos/{owner}/{repo}', headers=_gh(), json=data, timeout=10)
-    if not r.ok:
-        return {'error': r.text, 'status': r.status_code}
-    d = r.json()
-    return {'success': True, 'full_name': d.get('full_name'), 'private': d.get('private'), 'description': d.get('description'), 'default_branch': d.get('default_branch')}
+    r = _gpatch(f'/repos/{owner}/{repo}', data)
+    if isinstance(r, dict) and r.get('error'):
+        return r
+    if not isinstance(r, dict):
+        return {'success': True}
+    return {
+        'success': True,
+        'full_name': r.get('full_name'),
+        'private': r.get('private'),
+        'description': r.get('description'),
+        'default_branch': r.get('default_branch'),
+    }
 
 
 @mcp.tool()
@@ -214,7 +236,7 @@ def gitea_close_issue(owner: str, repo: str, issue_number: int, comment: str = N
     """Optional comment POST then PATCH state closed."""
     if comment:
         _gpost(f'/repos/{owner}/{repo}/issues/{issue_number}/comments', {'body': comment})
-    r = requests.patch(f'{GITEA_URL}/api/v1/repos/{owner}/{repo}/issues/{issue_number}', headers=_gh(), json={'state': 'closed'}, timeout=10)
-    if not r.ok:
-        return {'error': r.text}
+    r = _gpatch(f'/repos/{owner}/{repo}/issues/{issue_number}', {'state': 'closed'})
+    if isinstance(r, dict) and r.get('error'):
+        return r
     return {'success': True, 'issue_number': issue_number, 'state': 'closed'}

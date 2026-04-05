@@ -316,7 +316,7 @@ Returns: `{path, name, size, sha, content, html_url}`
 ---
 
 ### `gitea_create_or_update_file`
-Create or update a file. **Provide `sha` when updating.**
+Create or update a file. If **`sha` is omitted**, the server **GETs** the file on the branch: **404** → create without `sha`; **200** → uses returned **`sha`** for update (GitHub/Gitea-compatible).
 | Param | Type | Req | Description |
 |-------|------|-----|-------------|
 | owner | str | ✓ | |
@@ -325,7 +325,7 @@ Create or update a file. **Provide `sha` when updating.**
 | content | str | ✓ | Plain text content |
 | message | str | ✓ | Commit message |
 | branch | str | | Default: `"main"` |
-| sha | str | | Required when updating existing file |
+| sha | str | | Optional; omit for auto create/update detection, or pass to force a known blob revision |
 
 ---
 
