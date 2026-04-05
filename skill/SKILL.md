@@ -8,6 +8,7 @@ tags: [mcp, knowledge-base, postgresql, neo4j, memory, graph]
 
 - configuration.md
 - session-start.md
+- tool-invocation.md (MCP `tools/call`, `arguments` / `args`, auth, parameter rules)
 - data-model.md
 - for-human.md (operators / setup narrative; optional for agents)
 - tools-reading.md

@@ -9,18 +9,30 @@ from config import (
     GITEA_AGENT_LOGIN,
     GITEA_AGENT_TOKEN,
     GITEA_INTERNAL_URL,
+    GIT_COMMIT_USER_EMAIL,
+    GIT_COMMIT_USER_NAME,
     GIT_LOCAL_REPOS_TTL_DAYS,
     GIT_WORKDIR,
     log,
 )
 
 
+def git_command_env() -> dict:
+    """Env for every git subprocess: no TTY prompts; author/committer if not set globally."""
+    env = os.environ.copy()
+    env['GIT_TERMINAL_PROMPT'] = '0'
+    env.setdefault('GIT_AUTHOR_NAME', GIT_COMMIT_USER_NAME)
+    env.setdefault('GIT_AUTHOR_EMAIL', GIT_COMMIT_USER_EMAIL)
+    env.setdefault('GIT_COMMITTER_NAME', GIT_COMMIT_USER_NAME)
+    env.setdefault('GIT_COMMITTER_EMAIL', GIT_COMMIT_USER_EMAIL)
+    return env
+
+
 def _git(repo_path: str, args: list, input_text: str = None) -> dict:
     path = Path(repo_path)
     if not path.exists():
         return {'error': f'Path does not exist: {repo_path}'}
-    env = os.environ.copy()
-    env['GIT_TERMINAL_PROMPT'] = '0'
+    env = git_command_env()
     result = subprocess.run(
         ['git'] + args,
         cwd=str(path),

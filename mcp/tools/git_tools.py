@@ -1,12 +1,11 @@
 """Local git subprocess tools. Full parameter docs: project skill."""
-import os
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from config import GIT_WORKDIR, log
-from git_helpers import _auth_url, _git, _repo_path
+from git_helpers import _auth_url, _git, _repo_path, git_command_env
 from mcp_app import mcp
 
 
@@ -22,8 +21,7 @@ def git_clone(repo_full_name: str, local_name: str = None, branch: str = None) -
     args = ['clone', url, dest]
     if branch:
         args = ['clone', '-b', branch, url, dest]
-    env = os.environ.copy()
-    env['GIT_TERMINAL_PROMPT'] = '0'
+    env = git_command_env()
     result = subprocess.run(['git'] + args, capture_output=True, text=True, env=env, timeout=120)
     if result.returncode != 0:
         return {'error': result.stderr.strip() or result.stdout.strip()}

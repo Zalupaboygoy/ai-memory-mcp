@@ -1,5 +1,6 @@
 # Rules
 
+- Use exact tool parameter names in MCP `arguments` (see **`tool-invocation.md`** and `docs/MCP_API.md`); wrong names yield empty or failed calls
 - Always search before writing
 - Call `update_summary` after material `write_entry` / category changes (recommended; tool tip says the same)
 - Run `session-start.md` before substantial work

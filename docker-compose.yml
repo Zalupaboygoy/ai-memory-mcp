@@ -109,6 +109,8 @@ services:
       - GITEA_URL=http://gitea:3000
       - GITEA_TOKEN=${GITEA_TOKEN}
       - GITEA_AGENT_USER=ai-agent
+      - GIT_COMMIT_USER_NAME=${GIT_COMMIT_USER_NAME:-ai-agent}
+      - GIT_COMMIT_USER_EMAIL=${GIT_COMMIT_USER_EMAIL:-ai@memory.local}
       - LLM_CHAT_URL=${LLM_CHAT_URL:-}
       - LLM_CHAT_KEY=${LLM_CHAT_KEY:-}
       - LLM_CHAT_MODEL=${LLM_CHAT_MODEL:-gemini-2.5-flash}

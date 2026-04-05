@@ -39,3 +39,7 @@ GIT_LOCAL_REPOS_TTL_DAYS = int(os.getenv('GIT_LOCAL_REPOS_TTL_DAYS', '7'))
 GITEA_INTERNAL_URL = os.getenv('GITEA_URL', 'http://gitea:3000')
 GITEA_AGENT_TOKEN = os.getenv('GITEA_TOKEN', '')
 GITEA_AGENT_LOGIN = os.getenv('GITEA_AGENT_USER', 'ai-agent')
+
+# Git identity for commits (and env fallback when ~/.gitconfig is missing in container).
+GIT_COMMIT_USER_NAME = os.getenv('GIT_COMMIT_USER_NAME', 'ai-agent')
+GIT_COMMIT_USER_EMAIL = os.getenv('GIT_COMMIT_USER_EMAIL', 'ai@memory.local')

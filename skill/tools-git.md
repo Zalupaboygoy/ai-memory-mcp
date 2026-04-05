@@ -1,5 +1,7 @@
 # Tools: Local Git
 
+Same MCP invocation as all other tools (`tools/call`, `arguments`). Paths are always relative to the clone identified by `local_name`; see **`tool-invocation.md`**.
+
 ```
 git_clone  git_init  git_status  git_write_file  git_read_file
 git_delete_file  git_copy_file  git_clone_to  git_list_local_files
