@@ -359,7 +359,8 @@ def find_paths(
 ) -> Dict:
     """allShortestPaths between ids; max_depth capped 8."""
     uid = _get_uid()
-    max_depth = min(max_depth, 8)
+    # Neo4j 5 Community: path range cannot use query parameters — embed bounded int only.
+    md = max(1, min(int(max_depth), 8))
 
     conn = get_conn()
     try:
@@ -373,18 +374,18 @@ def find_paths(
 
     try:
         rows = neo4j_read(
-            """
+            f"""
             MATCH path = allShortestPaths(
-                (a:Entry {entry_id: $from_id, user_id: $uid})-[*1..$max_depth]-(b:Entry {entry_id: $to_id, user_id: $uid})
+                (a:Entry {{entry_id: $from_id, user_id: $uid}})-[*1..{md}]-(b:Entry {{entry_id: $to_id, user_id: $uid}})
             )
             WHERE ALL(r IN relationships(path) WHERE type(r) <> 'BELONGS_TO' AND type(r) <> 'CHILD_OF')
-            RETURN [n IN nodes(path) | {entry_id: n.entry_id, title: n.title}] AS path_nodes,
-                   [r IN relationships(path) | {type: r.relation_type, description: r.description}] AS path_rels,
+            RETURN [n IN nodes(path) | {{entry_id: n.entry_id, title: n.title}}] AS path_nodes,
+                   [r IN relationships(path) | {{type: r.relation_type, description: r.description}}] AS path_rels,
                    length(path) AS path_length
             ORDER BY path_length
             LIMIT 10
             """,
-            from_id=from_entry_id, to_id=to_entry_id, uid=uid, max_depth=max_depth
+            from_id=from_entry_id, to_id=to_entry_id, uid=uid,
         )
 
         paths = []
