@@ -55,6 +55,8 @@ Returns the full category tree. **Always call first.**
 | importance_score | float | | 0.0–1.0, default 0.5 |
 | metadata | dict | | Any extra JSON |
 
+When **`AUTO_SUMMARIZE=true`** (env) and the category’s entry count hits a multiple of **`AUTO_SUMMARIZE_TRIGGER`**, the response includes **`auto_summary_triggered`**. The server then calls the configured chat API (**`LLM_CHAT_URL`**, **`LLM_CHAT_KEY`**, **`LLM_CHAT_MODEL`**) to generate text and persists it via **`update_summary`** for that category. **`auto_summary`** in the response reports `{applied, reason, ...}`. If the LLM is not configured, **`reason`** is typically `llm_empty` and the category summary is unchanged.
+
 ---
 
 ### `get_entry`

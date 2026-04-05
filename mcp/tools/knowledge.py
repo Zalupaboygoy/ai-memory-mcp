@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 import psycopg2.extras
 
-from config import AUTO_SUMMARIZE, AUTO_SUMMARIZE_TRIGGER
+from config import AUTO_SUMMARIZE, AUTO_SUMMARIZE_TRIGGER, log
 from db import get_conn
 from mcp_app import mcp
 from neo4j_ops import (
@@ -14,6 +14,84 @@ from neo4j_ops import (
     _sync_entry_to_neo4j,
 )
 from user_context import _get_uid
+
+
+def _auto_summary_for_category(uid: int, category_path: str, category_id: int) -> dict:
+    """LLM summary + update_summary when AUTO_SUMMARIZE triggers."""
+    from embeddings import _llm_chat
+
+    log.info(
+        'AUTO_SUMMARIZE: trigger fired for category_path=%s category_id=%s',
+        category_path,
+        category_id,
+    )
+    conn = get_conn()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT name, description FROM categories
+                WHERE id = %s AND user_id = %s
+                """,
+                (category_id, uid),
+            )
+            cat_row = cur.fetchone()
+            cur.execute(
+                """
+                SELECT title, keywords, description, content
+                FROM entries
+                WHERE category_id = %s AND user_id = %s
+                ORDER BY updated_at DESC
+                LIMIT 60
+                """,
+                (category_id, uid),
+            )
+            rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        log.warning('AUTO_SUMMARIZE: no entries found for category_id=%s', category_id)
+        return {'applied': False, 'reason': 'no_entries'}
+
+    lines = []
+    if cat_row:
+        desc = (cat_row.get('description') or '').strip()
+        lines.append(f"Category: {cat_row['name']}\n{desc}")
+    for i, r in enumerate(rows, 1):
+        blob = f"{i}. {r['title']}\nKeywords: {r['keywords']}\n{(r.get('description') or '').strip()}"
+        c = r.get('content')
+        if c:
+            c = str(c)
+            if len(c) > 2000:
+                c = c[:2000] + '...'
+            blob += f"\n{c}"
+        lines.append(blob)
+
+    user = (
+        'Write a concise summary (2-6 sentences) of this knowledge base category for humans. '
+        'Focus on themes and facts.\n\n'
+        + '\n\n---\n\n'.join(lines)
+    )
+    system = (
+        'You are a concise technical writer. Output only the summary text, no markdown title unless needed.'
+    )
+
+    text = _llm_chat(system, user)
+    if not text or not str(text).strip():
+        log.warning(
+            'AUTO_SUMMARIZE: LLM returned empty (set LLM_CHAT_URL, LLM_CHAT_KEY, LLM_CHAT_MODEL)'
+        )
+        return {'applied': False, 'reason': 'llm_empty'}
+
+    up = update_summary(category_path, str(text).strip())
+    if up.get('error'):
+        log.warning('AUTO_SUMMARIZE: update_summary failed: %s', up['error'])
+        return {'applied': False, 'reason': 'update_failed', 'detail': up['error']}
+
+    log.info('AUTO_SUMMARIZE: summary stored for %s', category_path)
+    return {'applied': True, 'entries_used': len(rows)}
+
 
 @mcp.tool()
 def whoami() -> Dict:
@@ -250,7 +328,7 @@ def write_entry(
             conn.commit()
 
             should_auto = False
-            if AUTO_SUMMARIZE:
+            if AUTO_SUMMARIZE and AUTO_SUMMARIZE_TRIGGER > 0:
                 cur.execute(
                     "SELECT COUNT(*) as c FROM entries WHERE category_id = %s AND user_id = %s",
                     (cat['id'], uid)
@@ -271,6 +349,9 @@ def write_entry(
 
         if should_auto:
             result['auto_summary_triggered'] = True
+            result['auto_summary'] = _auto_summary_for_category(uid, category_path, cat['id'])
+            if result['auto_summary'].get('applied'):
+                result['tip'] = f'Summary auto-updated for "{category_path}".'
 
         return result
     except Exception as e:
