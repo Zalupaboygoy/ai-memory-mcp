@@ -11,6 +11,7 @@ import time
 from starlette.middleware import Middleware
 
 import config  # noqa: F401 — load .env before other app modules
+from args_normalize_middleware import ArgsAliasMiddleware
 from auth_middleware import AuthMiddlewareASGI
 from mcp_app import mcp
 from neo4j_ops import init_neo4j_schema
@@ -47,6 +48,9 @@ if __name__ == '__main__':
     init_neo4j_schema()
     app = mcp.http_app(
         transport='sse',
-        middleware=[Middleware(AuthMiddlewareASGI)]
+        middleware=[
+            Middleware(AuthMiddlewareASGI),
+            Middleware(ArgsAliasMiddleware),
+        ]
     )
     uvicorn.run(app, host=host, port=port)
